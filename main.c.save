@@ -1,0 +1,102 @@
+#include <stdio.h>
+
+void copy_array(double* array1, double array2[], int size)
+{
+	int i;
+	for (i=0; i<size; i++)
+	{
+		array2[i] = *(array1 + i);
+	}
+}
+
+double mitjana(double array[], int size)
+{
+	double avg = 0;
+	int i;
+	for (i=0; i<size; i++){
+		avg += array[i];
+	}
+	return avg/size;
+} 
+//	EXEMPLE OSCIL·LADOR HARMONIC
+//	
+//	eq diferencial  dv_z/dt = -kz     (on v_z = dz/dt)
+//		        dz/dt = v_z
+//	
+//	=> y = (v_z, z)	=> dy/dx = f(x,y) = (dv_z/dz, dz/dx) = ( -kz, v_z))
+//	   x = t
+//
+// 		   Variables   Variable    Nombre de      Funció dy/dx = f(x,y)		            Pas		OUTPUT
+// 		   dependents  independent variables						  Integració	|
+// 		   (posicions,   (temps)   dependents 							|	|
+// 		   velocitats)                                     					|	|
+// 		         					   x       y[]  	  f(x,y)	|	|
+void rungekutta4(const double y[],double x ,int size, int (*func)(double, const double*, double*), double h, double* y1)
+{
+	int i;
+	double K1[size], K2[size], K3[size], K4[size], ycache[size];
+	double* fcache;
+	
+	// Sets K1 = f(x,y)
+	func(x,y, fcache);
+	for (i=0; i<size; i++)
+	{
+		K1[i] = *(fcache + i);
+	}
+
+	// Sets K2 = f(x + h/2, y + h/2*K1)
+	for (i=0; i<size; i++)
+	{
+		ycache[i] = y[i] + h/2*K1[i];
+	}
+	func(x + h/2, ycache, fcache);
+	for (i=0; i<size; i++)
+	{
+		K2[i] = *(fcache + i);
+	}
+
+	// Sets K3 = f(x + h/2, y + h/2*K2)
+	for (i=0; i<size; i++)
+	{
+		ycache[i] = y[i] + h/2*K2[i];
+	}
+	func(x + h/2, ycache, fcache);
+	for (i=0; i<size; i++)
+	{
+		K3[i] = *(fcache + i);
+	}
+
+	// Sets K4 = f(x + h, y + h*K3)
+	for (i=0; i<size; i++)
+	{
+		ycache[i] = y[i] + h*K3[i];
+	}
+	func(x + h, ycache, fcache);
+	for (i=0; i<size; i++)
+	{
+		K4[i] = *(fcache + i);
+	}
+
+	// Computes the final answer
+	for (i=0; i<size; i++)
+	{
+		y1[i] = y[i] + h/6*(K1[i] + 2*(K2[i]+K3[i]) + K4[i]);
+	}
+}
+
+void harmonic(double x,const double y[], double f[])
+{
+	double k = 9.8; // Constant recuperadora de la molla
+	f[0] = y[1];
+	f[1] = -k*y[0];
+}
+
+int main()
+{
+	double llista[] = {1,2,3,4,5,6};
+	double llista_copy[6];
+	copy_array(llista, llista_copy, 6);
+	double resultat = mitjana(llista_copy, 6);
+	printf("%f", resultat);
+	return 0;
+}

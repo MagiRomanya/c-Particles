@@ -1,0 +1,8 @@
+file = "gravetat.dat"
+plot file u ($2-$4):($3-$5) w l  #, file u 4:5 w l 
+pause -1
+plot file u 4:5 w l  #, file u 4:5 w l 
+pause -1
+
+plot file u 2:3 w l  , file u 4:5 w l 
+pause -1
