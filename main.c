@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <math.h>
+#include <SDL/SDL.h>
 
 void copy_array(double* array1, double array2[], int size)
 {
@@ -10,7 +11,18 @@ void copy_array(double* array1, double array2[], int size)
 	}
 }
 
+void print_array(const double v[], int len)
+{
+	int j;
+	for (j=0; j < len-1; j++)
+	{
+		printf("%f, ", v[j]);
+	}
+	printf("%f\n", v[j]);
 
+}
+
+// Stolen Quake3 fast inverse square root function
 float InvSqrt(float x)
 {
         float xhalf = 0.5f * x;
@@ -31,22 +43,22 @@ double mitjana(double array[], int size)
 	return avg/size;
 } 
 
-// Calcula un pas de runge kutta 4
+// Calculates a step of RK4
 //
-//	EXEMPLE OSCIL·LADOR HARMONIC
+//	EXAMPLE: Harmonic oscilator
 //	
-//	eq diferencial  dv_z/dt = -kz     (on v_z = dz/dt)
+//	diferential eq  dv_z/dt = -kz     (where v_z = dz/dt)
 //		        dz/dt = v_z
 //	
 //	=> y = (v_z, z)	=> dy/dx = f(x,y) = (dv_z/dz, dz/dx) = ( -kz, v_z))
 //	   x = t
 //
-// 		   Variables   Variable    Nombre de      Funció dy/dx = f(x,y)		            Pas		OUTPUT
-// 		   dependents  independent variables						  Integració	|
-// 		   (posicions,   (temps)   dependents 							|	|
-// 		   velocitats)                                     					|	|
+// 		   Dependent  Indepenedent    Number of      Function dy/dx = f(x,y)	          Integration	OUTPUT
+// 		   variables  	variable      dependent						  	step	|
+// 		   (positions,   (time)       variables							|	|
+// 		   velocities)                                     					|	|
 // 		         					   x       y[]  	  f(x,y)	|	|
-void rungekutta4(const double y[],double x ,int size, int (*func)(double, const double*, double*), double h, double* y1)
+void rungekutta4(const double y[], double x, int size, int (*func)(double, const double*, double*), double h, double* y1)
 {
 	int i;
 	double K1[size], K2[size], K3[size], K4[size], ycache[size];
@@ -83,26 +95,29 @@ void rungekutta4(const double y[],double x ,int size, int (*func)(double, const 
 }
 
 
-// Calcula la força d'un sol oscil·lador harmonic (serveix per testejar rungekutta)
+// Calculates a simple harmonic oscilator for testing RK4 porpuses
 int harmonic(double x,const double y[], double f[])
 {
-	double k = 9.8; // Constant recuperadora de la molla
+	double k = 9.8; // Elasticity regulator constant
 	f[0] = y[1];
 	f[1] = -k*y[0];
 	return 0;
 }
 
+#define DIM 2
+#define N_PARTICLES 3
 
-// Calcula la força de la gravetat per N cossos de la mateixa massa
-// en DIM dimensions
+// Calculates the gravitational force for N bodies of the same mass in DIM dimensions
+// Takes y[] as an argument y[] = {x1,...,xn,v1,...,vn}
+// f[] is the output and has the form f[] = {v1,...,vn,a1,...,an}
+// where v are the velocities and a the acceleration
 int gravetat(double x, const double y[], double f[])
 {
-	const int N = 2; // Nombre de particules
-	const int DIM = 2; // # Dimensions
-	const int SIZE = N*DIM*2; // Tenim N particules amb DIM coordenades i DIM velocitats-> Serà el nombre de dimensions que ha de tenir y[] i f[]
-	const int SIZE2 = N*DIM;
+	const int N = N_PARTICLES; // Particle number
+	const int SIZE = N*DIM*2; // We have N particles, DIM coordinates and DIM velocities => number of dimentions of y[] f[]
+	const int SIZE2 = N*DIM; // SIZE/2
 	int i, j, k;
-	const double G = 1; // Constant que regula la força
+	const double G = 1.0f; // Gravitational constant multiplied by m
 	double sum2, dist;
 	
 	// Initialize f
@@ -111,46 +126,61 @@ int gravetat(double x, const double y[], double f[])
 		f[i] = y[SIZE2+i]; // dz/dx = v_z
 		f[SIZE2+i] = 0;
 	}
-	for (i=0; i<SIZE2; i+=DIM)
+	for (i=0; i<SIZE2 -DIM; i+=DIM)
 	{
-		for (j=0; j<i; j+=DIM)
+		for (j=i+DIM; j<SIZE2; j+=DIM)
 		{
 			sum2 = 0;
+			// CALCULATE THE DISTANCE
 			for (k=0; k<DIM; k++)
 			{
 				sum2 +=(y[j+k]-y[i+k])*(y[j+k]-y[i+k]); // x**2 + y**2 + z**2
 			}
 			dist = InvSqrt(sum2);
+			// COMPUTES THE ACCELERATION
 			for (k=0; k<DIM; k++)
 			{
-				f[SIZE2+i+k] += G*(dist*dist*dist)*(y[j+k]-y[i+k]);
-				f[SIZE2+j+k] += -G*(dist*dist*dist)*(y[j+k]-y[i+k]);
+				double f_module = G*(dist*dist*dist)*(y[j+k]-y[i+k]);
+				f[SIZE2+i+k] += f_module;
+				f[SIZE2+j+k] += -f_module;
 			}
 		}
 	}
 	return 0;
 }
 
+
 int main()
 {
-	int size = 8;
+	int size = DIM * N_PARTICLES * 2;
 	double y[size], y1[size], t, h;
-	int i, iterations;
-	t = 0;
-	h = 0.1;
-	iterations = 1000000;
+	int i, j, iterations;
+	
+	// FINITE ELEMENTS VARIABLES
+	h = 0.01;
+	iterations = 5000;
+	
+	// INITIAL CONDITIONS
+	t = 0; 
 	for (i=0; i < size; i++)
 	{
 		y[i] = 0;
 	}
-	y[3] = 300;
-	y[6] = -0.01;
-	y[4] = 0.01;
+	y[2] = 10;
+	y[5] = -10;
+	y[6] = 0.2;
+	y[8] = -0.2;
+	y[11] = 0.2;
+
+	// RUNGE KUTTA LOOP
 	for (i=0; i < iterations; i++)
 	{
-		rungekutta4(y, t, size, gravetat,h,y1);
-		copy_array(y1, y, size);
-		printf("%f, %f, %f, %f, %f, %f, %f, %f, %f\n",t, y[0], y[1], y[2], y[3], y[4], y[5], y[6], y[7]);
+		rungekutta4(y, t, size, gravetat,h,y1); // Runge Kutta step
+		copy_array(y1, y, size); // Updates y to y1
+
+		// Writes the result of each step in the terminal
+		printf("%f, ", t);
+		print_array(y, size);
 		t+=h;
 	}
 	return 0;

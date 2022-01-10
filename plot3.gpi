@@ -1,0 +1,9 @@
+file = "output.dat"
+
+plot file u 2:3 w l t "", file u 4:5 w l t "", file u 6:7 w l t ""
+
+pause -1
+
+set term pngcairo enhanced size 800,600
+set output "3-body-problem.png"
+replot
