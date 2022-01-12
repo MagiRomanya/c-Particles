@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <math.h>
-#include <SDL/SDL.h>
+#include <stdbool.h>
+#include <SDL2/SDL.h>
 
 void copy_array(double* array1, double array2[], int size)
 {
@@ -149,6 +150,26 @@ int gravetat(double x, const double y[], double f[])
 	return 0;
 }
 
+// Draws the particles in the wondow in 2D
+void DrawParticles(SDL_Renderer *renderer, double coord[])
+{
+	SDL_SetRenderDrawColor(renderer, 200, 200, 200, 0); // Particle color
+	double x, y, radius;
+	radius = 15;
+	for (int i=0; i<N_PARTICLES; i++){
+		for (int j=0; j<DIM*N_PARTICLES; j+=2){
+			x = coord[j]*5 500;	// Coordinates here we should do a transformation from coordiantes to pixels
+			y = coord[j+1]*5 +500;
+			SDL_Rect rect = {
+			.x = x,
+			.y = y,
+			.w = radius,
+			.h = radius,
+			};
+			SDL_RenderFillRect(renderer, &rect);
+		}
+	}
+}
 
 int main()
 {
@@ -158,7 +179,7 @@ int main()
 	
 	// FINITE ELEMENTS VARIABLES
 	h = 0.01;
-	iterations = 5000;
+	iterations = 0;
 	
 	// INITIAL CONDITIONS
 	t = 0; 
@@ -183,5 +204,55 @@ int main()
 		print_array(y, size);
 		t+=h;
 	}
+	
+	// GRAPHICAL INTERFACE WITH SDL
+	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+		fprintf(stderr, "ERROR: Could not initialize SDL: %s\n",SDL_GetError());
+		exit(1);
+	}
+	SDL_Window *window =  SDL_CreateWindow("window test", 0, 0, 800, 600, SDL_WINDOW_RESIZABLE);
+	if ( window == NULL ) {
+		fprintf(stderr, "ERROR: Could not create a window %s\n", SDL_GetError());
+		exit(1);
+	}
+	
+	SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+	if ( renderer == NULL ){
+		fprintf(stderr, "ERROR: Could not create a renderer %s\n", SDL_GetError());
+		exit(1);
+	}
+	
+	// Window Main loop
+	bool quit=false;
+	while (!quit) {
+		// Event handeler
+		SDL_Event event;
+		while (SDL_PollEvent(&event)){
+			switch(event.type){
+			case SDL_QUIT:
+				quit=true;
+			}
+		}
+		SDL_SetRenderDrawColor(renderer, 48, 40, 60 ,0);
+		SDL_RenderClear(renderer);
+		
+		SDL_SetRenderDrawColor(renderer, 255, 0, 0, 0);
+		SDL_Rect rect = {
+		.x = 50,
+		.y = 50,
+		.w = 50,
+		.h = 50,
+		};
+		SDL_RenderFillRect(renderer, &rect);
+
+		rungekutta4(y, t, size, gravetat, h, y1); // Runge Kutta step
+		copy_array(y1, y, size); // Updates y to y1
+	
+		DrawParticles(renderer, y);
+
+		SDL_RenderPresent(renderer);
+	}
+	SDL_Quit();
 	return 0;
 }
+
