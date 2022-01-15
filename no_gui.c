@@ -19,8 +19,7 @@ void print_array(const double v[], int len)
 	{
 		printf("%f, ", v[j]);
 	}
-	if (len) printf("%f\n", v[j]);
-	else printf("Print_array: Array with no size\n");
+	printf("%f\n", v[j]);
 
 }
 
@@ -59,35 +58,35 @@ double mitjana(double array[], int size)
 // 		   variables  	variable      dependent						  	step	|
 // 		   (positions,   (time)       variables							|	|
 // 		   velocities)                                     					|	|
-// 		         					   x       y[]  	  f(x,y) size	|	|
-void rungekutta4(const double y[], double x, int size, int (*func)(double, const double*, double*, int), double h, double* y1)
+// 		         					   x       y[]  	  f(x,y)	|	|
+void rungekutta4(const double y[], double x, int size, int (*func)(double, const double*, double*), double h, double* y1)
 {
 	int i;
 	double K1[size], K2[size], K3[size], K4[size], ycache[size];
 	
 	// Sets K1 = f(x,y)
-	func(x,y,K1,size);
+	func(x,y, K1);
 
 	// Sets K2 = f(x + h/2, y + h/2*K1)
 	for (i=0; i<size; i++)
 	{
 		ycache[i] = y[i] + h/2*K1[i];
 	}
-	func(x + h/2, ycache, K2, size);
+	func(x + h/2, ycache, K2);
 
 	// Sets K3 = f(x + h/2, y + h/2*K2)
 	for (i=0; i<size; i++)
 	{
 		ycache[i] = y[i] + h/2*K2[i];
 	}
-	func(x + h/2, ycache, K3, size);
+	func(x + h/2, ycache, K3);
 
 	// Sets K4 = f(x + h, y + h*K3)
 	for (i=0; i<size; i++)
 	{
 		ycache[i] = y[i] + h*K3[i];
 	}
-	func(x + h, ycache, K4, size);
+	func(x + h, ycache, K4);
 
 	// Computes the final answer
 	for (i=0; i<size; i++)
@@ -98,7 +97,7 @@ void rungekutta4(const double y[], double x, int size, int (*func)(double, const
 
 
 // Calculates a simple harmonic oscilator for testing RK4 porpuses
-int harmonic(double x,const double y[], double f[], int size)
+int harmonic(double x,const double y[], double f[])
 {
 	double k = 9.8; // Elasticity regulator constant
 	f[0] = y[1];
@@ -107,22 +106,20 @@ int harmonic(double x,const double y[], double f[], int size)
 }
 
 #define DIM 2
-#define MAX_SIZE 8000
-#define G_STR 800.0
+#define N_PARTICLES 2
 
 // Calculates the gravitational force for N bodies of the same mass in DIM dimensions
-// Takes y[] as an argument y[] = {x1,...,xn,v1,...,vn} (NULL terminated)
-// f[] is the output and has the form f[] = {v1,...,vn,a1,...,an} 
+// Takes y[] as an argument y[] = {x1,...,xn,v1,...,vn}
+// f[] is the output and has the form f[] = {v1,...,vn,a1,...,an}
 // where v are the velocities and a the acceleration
-int gravity(double x, const double y[], double f[], int size)
+int gravity(double x, const double y[], double f[])
 {
+	const int N = N_PARTICLES; // Particle number
+	const int SIZE = N*DIM*2; // We have N particles, DIM coordinates and DIM velocities => number of dimentions of y[] f[]
+	const int SIZE2 = N*DIM; // SIZE/2
 	int i, j, k;
-	const int SIZE = size; 
-	const int SIZE2 = size/2; // SIZE/2
-	const int N=SIZE/(2*DIM); // We have N particles, DIM coordinates and DIM velocities => number of dimentions of y[] f[]
-	const double G = G_STR; // Gravitational constant multiplied by m
+	const double G = 1.0f; // Gravitational constant multiplied by m
 	double sum2, dist;
-	
 	
 	// Initialize f
 	for (i=0; i<SIZE2; i++)
@@ -154,65 +151,35 @@ int gravity(double x, const double y[], double f[], int size)
 }
 
 // Draws the particles in the wondow in 2D
-void DrawParticles(SDL_Renderer *renderer, double coord[], int N)
+void DrawParticles(SDL_Renderer *renderer, double coord[])
 {
 	SDL_SetRenderDrawColor(renderer, 200, 200, 200, 0); // Particle color
-	double x, y, radius, radius2;
-	radius = 14;
-	radius2 = 7; // half the radius 
-	for (int j=0; j<N*DIM; j=j+2){
-		x = coord[j];
-		y = coord[j+1];
-		SDL_Rect rect = {
-		.x = x -radius2,
-		.y = y -radius2,
-		.w = radius,
-		.h = radius,
-		};
-		SDL_RenderFillRect(renderer, &rect);
+	double x, y, radius;
+	radius = 15;
+	for (int i=0; i<N_PARTICLES; i++){
+		for (int j=0; j<DIM*N_PARTICLES; j+=2){
+			x = coord[j]*5 +500;	// Coordinates here we should do a transformation from coordiantes to pixels
+			y = coord[j+1]*5 +500;
+			SDL_Rect rect = {
+			.x = x,
+			.y = y,
+			.w = radius,
+			.h = radius,
+			};
+			SDL_RenderFillRect(renderer, &rect);
+		}
 	}
 }
-
-int Add_Particle(double y[], const double coord[], int *size){
-	double y_copy[*size];
-	int size2 = (*size)/2; // half of the size
-	if (*size + 4< MAX_SIZE){
-		for (int i=0; i<*size; i++) y_copy[i]=y[i]; // Copy the array
-		for (int i=0; i<(*size)/2; i+=2){
-			y[i]=y_copy[i];
-			y[i+1]=y_copy[i+1];
-			y[size2+2+i]=y_copy[size2+i];
-			y[size2+3+i]=y_copy[size2+i+1];
-		}
-		y[size2] = coord[0]; 
-		y[size2+1] = coord[1]; 
-		y[*size+2] = coord[2]; 
-		y[(*size)+3] = coord[3]; 
-		*size += 4;
-		return 0;
-		for (int i=0; i<4; i++){
-			y[*size+i] = coord[i];
-		}
-		*size += 4;
-		return 0;
-	}
-	else{
-		printf("Exceeded maximum number of particles");
-		return -1;
-	}
-}
-#define get_size(x) DIM*x*2
 
 int main()
 {
-	int N_particles = 0;
-	int size = get_size(N_particles);
-	double y[MAX_SIZE], y1[MAX_SIZE], t, h;
-	double coord[4] = { 0., 0., 0., 0. };
+	int size = DIM * N_PARTICLES * 2;
+	double y[size], y1[size], t, h;
 	int i, j, iterations;
-	
+	double coord[] = {342.000000, 426.000000, 809.000000, 702.000000, 0.000000, 0.000000, 0.000000, 0.000000};
 	// FINITE ELEMENTS VARIABLES
-	h = 0.1;
+	h = 0.01;
+	iterations = 0;
 	
 	// INITIAL CONDITIONS
 	t = 0; 
@@ -220,7 +187,27 @@ int main()
 	{
 		y[i] = 0;
 	}
+	y[2] = 10;
+	y[5] = -10;
+	y[6] = 0.2;
+	y[8] = -0.2;
+	y[11] = 0.2;
+	for (i=0; i < size; i++)
+	{
+		y[i] = coord[i];
+	}
+	// RUNGE KUTTA LOOP
+	for (i=0; i < iterations; i++)
+	{
+		rungekutta4(y, t, size, gravity,h,y1); // Runge Kutta step
+		copy_array(y1, y, size); // Updates y to y1
 
+		// Writes the result of each step in the terminal
+		printf("%f, ", t);
+		print_array(y, size);
+		t+=h;
+	}
+	
 	// GRAPHICAL INTERFACE WITH SDL
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
 		fprintf(stderr, "ERROR: Could not initialize SDL: %s\n",SDL_GetError());
@@ -240,25 +227,15 @@ int main()
 	
 	// Window Main loop
 	bool quit=false;
-	int mouseX, mouseY;
 	while (!quit) {
-		// EVENT LOOP
+		// Event handeler
 		SDL_Event event;
 		while (SDL_PollEvent(&event)){
 			switch(event.type){
 			case SDL_QUIT:
 				quit=true;
-			case SDL_MOUSEBUTTONDOWN:
-				SDL_GetMouseState(&mouseX, &mouseY); // Where is the mouse?
-				coord[0] = mouseX;
-				coord[1] = mouseY;
-				Add_Particle(y, coord, &size);
-				N_particles++;
-				break;
 			}
 		}
-		SDL_Delay(17); // Waits to display frames
-		// BACKGROUND COLOR
 		SDL_SetRenderDrawColor(renderer, 48, 40, 60 ,0);
 		SDL_RenderClear(renderer);
 		
@@ -270,13 +247,11 @@ int main()
 		.h = 50,
 		};
 		SDL_RenderFillRect(renderer, &rect);
-		
-		// TRAJECTORY CALCULATIONS
+
 		rungekutta4(y, t, size, gravity, h, y1); // Runge Kutta step
 		copy_array(y1, y, size); // Updates y to y1
-
-		// DISPLAY THE PARTICLES
-		DrawParticles(renderer, y, N_particles);
+	
+		DrawParticles(renderer, y);
 
 		SDL_RenderPresent(renderer);
 	}
